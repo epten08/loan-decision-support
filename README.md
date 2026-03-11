@@ -1,90 +1,152 @@
-# LoanDecisionSupport
+# Loan Decision Support System
 
-<a alt="Nx logo" href="https://nx.dev" target="_blank" rel="noreferrer"><img src="https://raw.githubusercontent.com/nrwl/nx/master/images/nx-logo.png" width="45"></a>
+A backend platform for evaluating loan applications using deterministic rule evaluation, machine learning risk inference, decision aggregation logic, and full audit traceability.
 
-✨ Your new, shiny [Nx workspace](https://nx.dev) is almost ready ✨.
+## Project Overview
 
-[Learn more about this workspace setup and its capabilities](https://nx.dev/nx-api/js?utm_source=nx_project&amp;utm_medium=readme&amp;utm_campaign=nx_projects) or run `npx nx graph` to visually explore what was created. Now, let's get you up to speed!
+This is an Nx monorepo containing two main services:
 
-## Finish your CI setup
+1. **Decision API** (Spring Boot) - Responsible for rule evaluation and decisioning
+2. **Risk Inference Engine** (FastAPI) - Responsible for probability-of-default scoring
 
-[Click here to finish setting up your workspace!](https://cloud.nx.app/connect/Qt6L4y26n7)
-
-
-## Generate a library
-
-```sh
-npx nx g @nx/js:lib packages/pkg1 --publishable --importPath=@my-org/pkg1
-```
-
-## Run tasks
-
-To build the library use:
-
-```sh
-npx nx build pkg1
-```
-
-To run any task with Nx use:
-
-```sh
-npx nx <target> <project-name>
-```
-
-These targets are either [inferred automatically](https://nx.dev/concepts/inferred-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) or defined in the `project.json` or `package.json` files.
-
-[More about running tasks in the docs &raquo;](https://nx.dev/features/run-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-## Versioning and releasing
-
-To version and release the library use
+## Repository Structure
 
 ```
-npx nx release
+loan-decision-support/
+├── apps/
+│   ├── decision-api/          # Spring Boot decision service
+│   └── risk-engine/           # FastAPI risk scoring service
+├── libs/
+│   ├── domain-models/         # Shared domain models
+│   ├── decision-contracts/    # API contracts
+│   └── rule-definitions/      # Rule YAML definitions
+├── infra/
+│   └── docker/                # Docker configurations
+├── nx.json                    # Nx workspace configuration
+├── package.json               # Root package configuration
+└── docker-compose.yml         # Service orchestration
 ```
 
-Pass `--dry-run` to see what would happen without actually releasing the library.
+## Prerequisites
 
-[Learn more about Nx release &raquo;](https://nx.dev/features/manage-releases?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+- Node.js 18+
+- Java 21 (JDK)
+- Python 3.11+
+- Docker & Docker Compose
+- Gradle (wrapper included)
 
-## Keep TypeScript project references up to date
+## Installation
 
-Nx automatically updates TypeScript [project references](https://www.typescriptlang.org/docs/handbook/project-references.html) in `tsconfig.json` files to ensure they remain accurate based on your project dependencies (`import` or `require` statements). This sync is automatically done when running tasks such as `build` or `typecheck`, which require updated references to function correctly.
+### 1. Install Node dependencies
 
-To manually trigger the process to sync the project graph dependencies information to the TypeScript project references, run the following command:
-
-```sh
-npx nx sync
+```bash
+npm install
 ```
 
-You can enforce that the TypeScript project references are always in the correct state when running in CI by adding a step to your CI job configuration that runs the following command:
+### 2. Install Python dependencies (Risk Engine)
 
-```sh
-npx nx sync:check
+```bash
+cd apps/risk-engine
+pip install -r requirements.txt
 ```
 
-[Learn more about nx sync](https://nx.dev/reference/nx-commands#sync)
+### 3. Build Decision API
 
+```bash
+npx nx build decision-api
+```
 
-[Learn more about Nx on CI](https://nx.dev/ci/intro/ci-with-nx#ready-get-started-with-your-provider?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+## Running the Services
 
-## Install Nx Console
+### Using Nx Commands
 
-Nx Console is an editor extension that enriches your developer experience. It lets you run tasks, generate code, and improves code autocompletion in your IDE. It is available for VSCode and IntelliJ.
+Start the Decision API:
+```bash
+npx nx serve decision-api
+```
 
-[Install Nx Console &raquo;](https://nx.dev/getting-started/editor-setup?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+Start the Risk Engine:
+```bash
+npx nx serve risk-engine
+```
 
-## Useful links
+Run both services:
+```bash
+npx nx run-many -t serve --all
+```
 
-Learn more:
+### Using Docker Compose
 
-- [Learn more about this workspace setup](https://nx.dev/nx-api/js?utm_source=nx_project&amp;utm_medium=readme&amp;utm_campaign=nx_projects)
-- [Learn about Nx on CI](https://nx.dev/ci/intro/ci-with-nx?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Releasing Packages with Nx release](https://nx.dev/features/manage-releases?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [What are Nx plugins?](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+Start all services (PostgreSQL, Decision API, Risk Engine):
+```bash
+docker-compose up -d
+```
 
-And join the Nx community:
-- [Discord](https://go.nx.dev/community)
-- [Follow us on X](https://twitter.com/nxdevtools) or [LinkedIn](https://www.linkedin.com/company/nrwl)
-- [Our Youtube channel](https://www.youtube.com/@nxdevtools)
-- [Our blog](https://nx.dev/blog?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+Stop all services:
+```bash
+docker-compose down
+```
+
+## Service Endpoints
+
+| Service | Port | Base URL |
+|---------|------|----------|
+| Decision API | 8080 | http://localhost:8080 |
+| Risk Engine | 8001 | http://localhost:8001 |
+| PostgreSQL | 5432 | localhost:5432 |
+
+## API Endpoints
+
+### Decision API
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/loan-applications` | Submit a new loan application |
+| GET | `/api/loan-applications/{id}` | Get application details |
+| POST | `/api/loan-applications/{id}/evaluate` | Trigger evaluation |
+| GET | `/api/loan-applications/{id}/decision` | Get decision result |
+
+### Risk Engine
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/risk/assess` | Assess risk for application |
+| GET | `/risk/model-info` | Get model information |
+| GET | `/health` | Health check |
+
+## Testing
+
+Run Decision API tests:
+```bash
+npx nx test decision-api
+```
+
+Run Risk Engine tests:
+```bash
+npx nx test risk-engine
+```
+
+## Development
+
+### View Dependency Graph
+
+```bash
+npx nx graph
+```
+
+### Build All Projects
+
+```bash
+npx nx run-many -t build --all
+```
+
+## Technology Stack
+
+- **Decision API**: Java 21, Spring Boot 3.2, Spring Data JPA, Flyway, PostgreSQL
+- **Risk Engine**: Python 3.11, FastAPI, Pydantic, scikit-learn
+- **Infrastructure**: Docker, Docker Compose, Nx
+- **Database**: PostgreSQL 16
+
+## License
+
+MIT

@@ -1,0 +1,49 @@
+services:
+
+  postgres:
+    image: postgres:16
+    container_name: loan-postgres
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_DB: loandb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  decision-api:
+    build:
+      context: ./apps/decision-api
+      dockerfile: Dockerfile
+    container_name: decision-api
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/loandb
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      RISK_ENGINE_BASE_URL: http://risk-engine:8001
+    depends_on:
+      postgres:
+        condition: service_healthy
+      risk-engine:
+        condition: service_started
+
+  risk-engine:
+    build:
+      context: ./apps/risk-engine
+      dockerfile: Dockerfile
+    container_name: risk-engine
+    ports:
+      - "8001:8001"
+    environment:
+      DEBUG: "false"
+
+volumes:
+  postgres_data:

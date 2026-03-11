@@ -40,3 +40,34 @@ Thumbs.db
 
 .nx/cache
 .nx/workspace-data
+
+vite.config.*.timestamp*
+test-output
+
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+*.egg-info/
+
+# Environment files
+.env
+.env.local
+*.env
+
+# Logs
+*.log
+logs/
+
+# Error logs
+error.log
+
+# Claude settings (optional - remove if you want to track)
+.claude/

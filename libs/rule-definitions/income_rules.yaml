@@ -1,0 +1,11 @@
+- code: MIN_INCOME
+  condition: monthly_income < 500
+  severity: HARD
+  reason: INSUFFICIENT_INCOME
+  description: Minimum monthly income requirement of 500
+
+- code: MAX_LOAN_TO_INCOME
+  condition: requested_amount > monthly_income * 48
+  severity: HARD
+  reason: LOAN_EXCEEDS_AFFORDABILITY
+  description: Loan amount should not exceed 48 times monthly income

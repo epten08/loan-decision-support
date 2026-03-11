@@ -1,0 +1,10 @@
+{
+  "name": "@loan-decision-support/query-ui-e2e",
+  "version": "0.0.1",
+  "private": true,
+  "nx": {
+    "implicitDependencies": [
+      "@loan-decision-support/query-ui"
+    ]
+  }
+}

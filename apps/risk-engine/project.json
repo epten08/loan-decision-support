@@ -1,0 +1,27 @@
+{
+  "name": "risk-engine",
+  "root": "apps/risk-engine",
+  "targets": {
+    "install": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pip install -r requirements.txt",
+        "cwd": "apps/risk-engine"
+      }
+    },
+    "serve": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "uvicorn app.main:app --reload --port 8001",
+        "cwd": "apps/risk-engine"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "python -m pytest tests/ -v",
+        "cwd": "apps/risk-engine"
+      }
+    }
+  }
+}

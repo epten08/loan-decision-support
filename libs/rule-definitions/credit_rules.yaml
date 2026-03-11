@@ -1,0 +1,29 @@
+- code: MIN_CREDIT_SCORE
+  condition: credit_score < 300
+  severity: HARD
+  reason: LOW_CREDIT_SCORE
+  description: Minimum credit score requirement
+
+- code: MAX_DTI
+  condition: debt_to_income_ratio > 50
+  severity: HARD
+  reason: HIGH_DEBT_TO_INCOME
+  description: Maximum debt-to-income ratio of 50%
+
+- code: NO_RECENT_DEFAULTS
+  condition: defaults_last_5_years > 0
+  severity: HARD
+  reason: PREVIOUS_DEFAULT
+  description: No defaults allowed in the last 5 years
+
+- code: MAX_MISSED_PAYMENTS
+  condition: missed_payments_last_12_months > 3
+  severity: SOFT
+  reason: PAYMENT_HISTORY_CONCERN
+  description: Warning for more than 3 missed payments in last 12 months
+
+- code: MIN_CREDIT_HISTORY
+  condition: credit_history_months < 6
+  severity: SOFT
+  reason: LIMITED_CREDIT_HISTORY
+  description: Warning for credit history less than 6 months
