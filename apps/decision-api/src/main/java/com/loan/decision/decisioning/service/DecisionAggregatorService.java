@@ -6,8 +6,7 @@ import com.loan.decision.decisioning.controller.dto.DecisionResponse;
 import com.loan.decision.decisioning.model.Decision;
 import com.loan.decision.decisioning.policy.DecisionPolicy;
 import com.loan.decision.decisioning.repository.DecisionRepository;
-import com.loan.decision.governance.model.DecisionAuditLog;
-import com.loan.decision.governance.repository.DecisionAuditLogRepository;
+import com.loan.decision.governance.service.DecisionPersistenceService;
 import com.loan.decision.loanintake.model.LoanApplication;
 import com.loan.decision.loanintake.repository.LoanApplicationRepository;
 import com.loan.decision.riskadapter.model.RiskAssessment;
@@ -21,7 +20,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -33,7 +31,7 @@ public class DecisionAggregatorService {
     private final RuleEngineService ruleEngineService;
     private final RiskAdapterService riskAdapterService;
     private final DecisionRepository decisionRepository;
-    private final DecisionAuditLogRepository auditLogRepository;
+    private final DecisionPersistenceService decisionPersistenceService;
     private final DecisionPolicy decisionPolicy;
 
     @Transactional
@@ -74,15 +72,12 @@ public class DecisionAggregatorService {
             riskAssessment = riskAdapterService.assessRisk(application, creditProfile);
         }
 
-        // Aggregate decision
-        Decision decision = aggregateDecision(application, ruleResults, riskAssessment);
+        // Aggregate and persist decision with full audit trail
+        Decision decision = aggregateAndPersistDecision(application, ruleResults, riskAssessment);
 
         // Update application status
         application.setStatus(mapDecisionToStatus(decision.getOutcome()));
         loanApplicationRepository.save(application);
-
-        // Create audit log
-        createAuditLog(decision, ruleResults, riskAssessment);
 
         log.info("Decision for application {}: {}", applicationId, decision.getOutcome());
 
@@ -97,9 +92,9 @@ public class DecisionAggregatorService {
         return mapToResponse(decision);
     }
 
-    private Decision aggregateDecision(LoanApplication application,
-                                       List<RuleResult> ruleResults,
-                                       RiskAssessment riskAssessment) {
+    private Decision aggregateAndPersistDecision(LoanApplication application,
+                                                   List<RuleResult> ruleResults,
+                                                   RiskAssessment riskAssessment) {
 
         List<String> reasonCodes = new ArrayList<>();
         long hardFailures = ruleResults.stream().filter(RuleResult::isHardFail).count();
@@ -146,18 +141,15 @@ public class DecisionAggregatorService {
                     pd.multiply(BigDecimal.valueOf(100)), riskAssessment.getRiskBand());
         }
 
-        Decision decision = Decision.builder()
-                .loanApplication(application)
-                .outcome(outcome)
-                .reasonCodes(String.join(",", reasonCodes))
-                .riskBand(riskAssessment.getRiskBand().name())
-                .probabilityOfDefault(pd)
-                .hardRuleFailures((int) hardFailures)
-                .softRuleFailures((int) softFailures)
-                .decisionSummary(summary)
-                .build();
-
-        return decisionRepository.save(decision);
+        // Use DecisionPersistenceService to save decision with full audit trail
+        return decisionPersistenceService.saveDecision(
+                application,
+                outcome,
+                ruleResults,
+                riskAssessment,
+                reasonCodes,
+                summary
+        );
     }
 
     private CreditProfile createDefaultCreditProfile(LoanApplication application) {
@@ -180,29 +172,6 @@ public class DecisionAggregatorService {
                 .build();
 
         return creditProfileRepository.save(profile);
-    }
-
-    private void createAuditLog(Decision decision,
-                                List<RuleResult> ruleResults,
-                                RiskAssessment riskAssessment) {
-        String rulesSummary = ruleResults.stream()
-                .map(r -> String.format("%s:%s", r.getRuleCode(), r.isPassed() ? "PASS" : "FAIL"))
-                .collect(Collectors.joining(";"));
-
-        DecisionAuditLog auditLog = DecisionAuditLog.builder()
-                .decision(decision)
-                .eventType(DecisionAuditLog.EventType.DECISION_MADE)
-                .eventDescription("Automated decision evaluation completed")
-                .previousState(null)
-                .newState(decision.getOutcome().name())
-                .ruleEvaluationSummary(rulesSummary)
-                .riskAssessmentSummary(String.format("PD:%.4f;Band:%s;Confidence:%.2f",
-                        riskAssessment.getProbabilityOfDefault(),
-                        riskAssessment.getRiskBand(),
-                        riskAssessment.getConfidence()))
-                .build();
-
-        auditLogRepository.save(auditLog);
     }
 
     private LoanApplication.ApplicationStatus mapDecisionToStatus(Decision.DecisionOutcome outcome) {

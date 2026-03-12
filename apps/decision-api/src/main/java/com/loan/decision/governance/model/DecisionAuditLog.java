@@ -43,6 +43,12 @@ public class DecisionAuditLog {
     @Column(columnDefinition = "TEXT")
     private String riskAssessmentSummary;
 
+    @Column(columnDefinition = "TEXT")
+    private String ruleResultsJson;
+
+    @Column(columnDefinition = "TEXT")
+    private String riskAssessmentJson;
+
     private String performedBy;
 
     @Column(nullable = false, updatable = false)
