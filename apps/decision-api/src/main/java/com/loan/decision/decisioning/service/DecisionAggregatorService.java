@@ -2,9 +2,9 @@ package com.loan.decision.decisioning.service;
 
 import com.loan.decision.creditprofile.model.CreditProfile;
 import com.loan.decision.creditprofile.repository.CreditProfileRepository;
-import com.loan.decision.creditprofile.service.CreditProfileService;
 import com.loan.decision.decisioning.controller.dto.DecisionResponse;
 import com.loan.decision.decisioning.model.Decision;
+import com.loan.decision.decisioning.policy.DecisionPolicy;
 import com.loan.decision.decisioning.repository.DecisionRepository;
 import com.loan.decision.governance.model.DecisionAuditLog;
 import com.loan.decision.governance.repository.DecisionAuditLogRepository;
@@ -34,6 +34,7 @@ public class DecisionAggregatorService {
     private final RiskAdapterService riskAdapterService;
     private final DecisionRepository decisionRepository;
     private final DecisionAuditLogRepository auditLogRepository;
+    private final DecisionPolicy decisionPolicy;
 
     @Transactional
     public DecisionResponse evaluateApplication(UUID applicationId) {
@@ -112,45 +113,37 @@ public class DecisionAggregatorService {
 
         Decision.DecisionOutcome outcome;
         String summary;
+        BigDecimal pd = riskAssessment.getProbabilityOfDefault();
 
-        // Decision logic
+        // Decision logic using policy thresholds
         if (hardFailures > 0) {
             // Any HARD rule failure = DECLINE
             outcome = Decision.DecisionOutcome.DECLINED;
             summary = String.format("Declined due to %d hard rule failure(s)", hardFailures);
-        } else {
-            // No hard failures - check risk band
-            RiskAssessment.RiskBand riskBand = riskAssessment.getRiskBand();
-
-            switch (riskBand) {
-                case A, B -> {
-                    if (softFailures == 0) {
-                        outcome = Decision.DecisionOutcome.APPROVED;
-                        summary = String.format("Approved with risk band %s", riskBand);
-                    } else {
-                        outcome = Decision.DecisionOutcome.APPROVED;
-                        summary = String.format("Approved with risk band %s (%d soft warnings)",
-                                riskBand, softFailures);
-                    }
-                }
-                case C -> {
-                    outcome = Decision.DecisionOutcome.CONDITIONAL;
-                    reasonCodes.add("MEDIUM_RISK_BAND");
-                    summary = String.format("Conditional approval - risk band %s, requires additional review",
-                            riskBand);
-                }
-                case D, E -> {
-                    outcome = Decision.DecisionOutcome.DECLINED;
-                    reasonCodes.add("HIGH_RISK_BAND");
-                    summary = String.format("Declined due to high risk band %s (PD: %.2f%%)",
-                            riskBand, riskAssessment.getProbabilityOfDefault()
-                                    .multiply(BigDecimal.valueOf(100)));
-                }
-                default -> {
-                    outcome = Decision.DecisionOutcome.PENDING_REVIEW;
-                    summary = "Unable to determine outcome - pending manual review";
-                }
+        } else if (decisionPolicy.isAutoApprove(pd)) {
+            // PD below approve threshold - auto approve if soft failures within limit
+            if (softFailures <= decisionPolicy.getMaxSoftFailuresForApproval()) {
+                outcome = Decision.DecisionOutcome.APPROVED;
+                summary = String.format("Approved - PD %.2f%% below threshold (band %s)",
+                        pd.multiply(BigDecimal.valueOf(100)), riskAssessment.getRiskBand());
+            } else {
+                outcome = Decision.DecisionOutcome.MANUAL_REVIEW;
+                reasonCodes.add("SOFT_FAILURES_EXCEEDED");
+                summary = String.format("Manual review required - %d soft failures exceed limit",
+                        softFailures);
             }
+        } else if (decisionPolicy.isManualReview(pd)) {
+            // PD between approve and decline threshold - manual review
+            outcome = Decision.DecisionOutcome.MANUAL_REVIEW;
+            reasonCodes.add("PD_REQUIRES_REVIEW");
+            summary = String.format("Manual review required - PD %.2f%% (band %s)",
+                    pd.multiply(BigDecimal.valueOf(100)), riskAssessment.getRiskBand());
+        } else {
+            // PD above decline threshold - auto decline
+            outcome = Decision.DecisionOutcome.DECLINED;
+            reasonCodes.add("HIGH_PROBABILITY_OF_DEFAULT");
+            summary = String.format("Declined - PD %.2f%% exceeds threshold (band %s)",
+                    pd.multiply(BigDecimal.valueOf(100)), riskAssessment.getRiskBand());
         }
 
         Decision decision = Decision.builder()
@@ -158,6 +151,7 @@ public class DecisionAggregatorService {
                 .outcome(outcome)
                 .reasonCodes(String.join(",", reasonCodes))
                 .riskBand(riskAssessment.getRiskBand().name())
+                .probabilityOfDefault(pd)
                 .hardRuleFailures((int) hardFailures)
                 .softRuleFailures((int) softFailures)
                 .decisionSummary(summary)
@@ -216,7 +210,7 @@ public class DecisionAggregatorService {
             case APPROVED -> LoanApplication.ApplicationStatus.APPROVED;
             case DECLINED -> LoanApplication.ApplicationStatus.DECLINED;
             case CONDITIONAL -> LoanApplication.ApplicationStatus.CONDITIONAL;
-            case PENDING_REVIEW -> LoanApplication.ApplicationStatus.UNDER_REVIEW;
+            case MANUAL_REVIEW, PENDING_REVIEW -> LoanApplication.ApplicationStatus.UNDER_REVIEW;
         };
     }
 
@@ -230,6 +224,7 @@ public class DecisionAggregatorService {
                 .outcome(decision.getOutcome().name())
                 .reasonCodes(reasonCodes)
                 .riskBand(decision.getRiskBand())
+                .probabilityOfDefault(decision.getProbabilityOfDefault())
                 .hardRuleFailures(decision.getHardRuleFailures())
                 .softRuleFailures(decision.getSoftRuleFailures())
                 .summary(decision.getDecisionSummary())

@@ -7,6 +7,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -35,6 +36,9 @@ public class Decision {
 
     private String riskBand;
 
+    @Column(precision = 10, scale = 6)
+    private BigDecimal probabilityOfDefault;
+
     private Integer hardRuleFailures;
 
     private Integer softRuleFailures;
@@ -59,6 +63,7 @@ public class Decision {
         APPROVED,
         DECLINED,
         CONDITIONAL,
+        MANUAL_REVIEW,
         PENDING_REVIEW
     }
 }
