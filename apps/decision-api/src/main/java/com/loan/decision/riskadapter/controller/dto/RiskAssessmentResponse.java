@@ -1,5 +1,6 @@
 package com.loan.decision.riskadapter.controller.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -14,7 +15,12 @@ import java.math.BigDecimal;
 public class RiskAssessmentResponse {
 
     private BigDecimal pd;
+
+    @JsonProperty("risk_band")
     private String riskBand;
+
     private BigDecimal confidence;
+
+    @JsonProperty("model_version")
     private String modelVersion;
 }
