@@ -59,8 +59,19 @@ public class DecisionAggregatorService {
         // Evaluate rules
         List<RuleResult> ruleResults = ruleEngineService.evaluateApplication(application, creditProfile);
 
-        // Get risk assessment
-        RiskAssessment riskAssessment = riskAdapterService.assessRisk(application, creditProfile);
+        // Check for hard rule failures - skip risk engine if any hard failures
+        RiskAssessment riskAssessment;
+        if (ruleEngineService.hasHardFailure(ruleResults)) {
+            log.info("Hard rule failure detected - skipping risk engine evaluation");
+            riskAssessment = RiskAssessment.builder()
+                    .probabilityOfDefault(BigDecimal.ONE)
+                    .riskBand(RiskAssessment.RiskBand.E)
+                    .confidence(BigDecimal.ONE)
+                    .build();
+        } else {
+            // Get risk assessment only if no hard failures
+            riskAssessment = riskAdapterService.assessRisk(application, creditProfile);
+        }
 
         // Aggregate decision
         Decision decision = aggregateDecision(application, ruleResults, riskAssessment);

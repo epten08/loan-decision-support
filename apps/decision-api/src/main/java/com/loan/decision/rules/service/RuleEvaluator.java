@@ -22,7 +22,9 @@ public class RuleEvaluator {
         log.debug("Evaluating rule: {} with condition: {}", rule.getCode(), rule.getCondition());
 
         try {
-            boolean passed = evaluateCondition(rule.getCondition(), applicationData);
+            // Condition describes the failure scenario - if condition is true, rule fails
+            boolean conditionMet = evaluateCondition(rule.getCondition(), applicationData);
+            boolean passed = !conditionMet;
 
             return RuleResult.builder()
                     .ruleCode(rule.getCode())
@@ -58,8 +60,9 @@ public class RuleEvaluator {
 
         Object actualValue = data.get(field);
         if (actualValue == null) {
-            log.warn("Field '{}' not found in application data", field);
-            return false;
+            log.warn("Field '{}' not found in application data - treating as rule violation", field);
+            // Missing required data should trigger the failure condition
+            return true;
         }
 
         return compareValues(actualValue, operator, expectedValue);

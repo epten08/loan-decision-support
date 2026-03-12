@@ -71,3 +71,4 @@ error.log
 
 # Claude settings (optional - remove if you want to track)
 .claude/
+docs/

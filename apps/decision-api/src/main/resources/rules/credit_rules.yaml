@@ -1,14 +1,14 @@
 - code: MIN_CREDIT_SCORE
-  condition: credit_score < 300
+  condition: credit_score < 600
   severity: HARD
   reason: LOW_CREDIT_SCORE
-  description: Minimum credit score requirement
+  description: Minimum credit score requirement of 600
 
 - code: MAX_DTI
-  condition: debt_to_income_ratio > 50
+  condition: debt_to_income_ratio > 0.4
   severity: HARD
   reason: HIGH_DEBT_TO_INCOME
-  description: Maximum debt-to-income ratio of 50%
+  description: Maximum debt-to-income ratio of 40%
 
 - code: NO_RECENT_DEFAULTS
   condition: defaults_last_5_years > 0

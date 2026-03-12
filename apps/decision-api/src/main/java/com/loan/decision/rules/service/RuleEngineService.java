@@ -3,6 +3,7 @@ package com.loan.decision.rules.service;
 import com.loan.decision.creditprofile.model.CreditProfile;
 import com.loan.decision.loanintake.model.LoanApplication;
 import com.loan.decision.rules.model.RuleDefinition;
+import com.loan.decision.rules.model.RuleEngineOutput;
 import com.loan.decision.rules.model.RuleEvaluation;
 import com.loan.decision.rules.model.RuleResult;
 import com.loan.decision.rules.repository.RuleEvaluationRepository;
@@ -164,6 +165,11 @@ public class RuleEngineService {
         data.put("requested_amount", application.getRequestedAmount());
         data.put("term_months", application.getTermMonths());
 
+        // Applicant data
+        if (application.getApplicant() != null) {
+            data.put("employment_status", application.getApplicant().getEmploymentStatus());
+        }
+
         // Credit profile data
         if (creditProfile != null) {
             data.put("credit_score", creditProfile.getCreditScore());
@@ -181,5 +187,21 @@ public class RuleEngineService {
 
     public List<RuleDefinition> getAllRules() {
         return Collections.unmodifiableList(ruleDefinitions);
+    }
+
+    /**
+     * Evaluates rules and returns structured output with hardFailure flag.
+     */
+    @Transactional
+    public RuleEngineOutput evaluate(LoanApplication application, CreditProfile creditProfile) {
+        List<RuleResult> results = evaluateApplication(application, creditProfile);
+        return RuleEngineOutput.fromRuleResults(results);
+    }
+
+    /**
+     * Checks if any rule results contain a hard failure.
+     */
+    public boolean hasHardFailure(List<RuleResult> results) {
+        return results.stream().anyMatch(RuleResult::isHardFail);
     }
 }

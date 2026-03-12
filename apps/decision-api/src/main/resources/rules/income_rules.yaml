@@ -9,3 +9,15 @@
   severity: HARD
   reason: LOAN_EXCEEDS_AFFORDABILITY
   description: Loan amount should not exceed 48 times monthly income
+
+- code: MAX_LOAN_AMOUNT
+  condition: requested_amount > 20000
+  severity: HARD
+  reason: EXCEEDS_POLICY_LIMIT
+  description: Requested loan must be below policy limit of 20000
+
+- code: EMPLOYMENT_REQUIRED
+  condition: employment_status != EMPLOYED
+  severity: HARD
+  reason: EMPLOYMENT_REQUIRED
+  description: Applicant must be employed
