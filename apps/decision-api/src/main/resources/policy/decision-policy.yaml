@@ -1,0 +1,44 @@
+# Decision Policy Configuration
+# This file contains all policy parameters for loan decision making.
+# Changes to this file can be made without code changes.
+
+# Risk threshold configuration
+risk_thresholds:
+  # PD below this threshold qualifies for auto-approval (if no rule failures)
+  approve: 0.05
+  # PD between approve and review thresholds goes to manual review
+  # PD above review threshold is auto-declined
+  review: 0.15
+
+# Rule-related policy settings
+rules:
+  # If true, any hard rule failure results in automatic decline
+  hard_fail_decline: true
+  # Maximum number of soft rule failures allowed for auto-approval
+  max_soft_failures_for_approval: 2
+
+# Loan limit configuration
+loan_limits:
+  # Maximum loan amount that can be approved
+  max_amount: 50000
+  # Minimum monthly income required
+  min_income: 1000
+  # Maximum loan term in months
+  max_term_months: 60
+  # Minimum loan term in months
+  min_term_months: 6
+
+# Credit requirements
+credit_requirements:
+  # Minimum credit score for consideration
+  min_credit_score: 600
+  # Maximum debt-to-income ratio (as decimal)
+  max_dti_ratio: 0.40
+  # Minimum credit history in months
+  min_credit_history_months: 6
+
+# Policy metadata
+metadata:
+  version: "1.0.0"
+  effective_date: "2024-01-01"
+  description: "Default loan decision policy"

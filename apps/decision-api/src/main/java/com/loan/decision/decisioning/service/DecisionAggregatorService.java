@@ -4,11 +4,12 @@ import com.loan.decision.creditprofile.model.CreditProfile;
 import com.loan.decision.creditprofile.repository.CreditProfileRepository;
 import com.loan.decision.decisioning.controller.dto.DecisionResponse;
 import com.loan.decision.decisioning.model.Decision;
-import com.loan.decision.decisioning.policy.DecisionPolicy;
 import com.loan.decision.decisioning.repository.DecisionRepository;
 import com.loan.decision.governance.service.DecisionPersistenceService;
 import com.loan.decision.loanintake.model.LoanApplication;
 import com.loan.decision.loanintake.repository.LoanApplicationRepository;
+import com.loan.decision.policy.DecisionPolicy;
+import com.loan.decision.policy.PolicyService;
 import com.loan.decision.riskadapter.model.RiskAssessment;
 import com.loan.decision.riskadapter.service.RiskAdapterService;
 import com.loan.decision.rules.model.RuleResult;
@@ -32,7 +33,7 @@ public class DecisionAggregatorService {
     private final RiskAdapterService riskAdapterService;
     private final DecisionRepository decisionRepository;
     private final DecisionPersistenceService decisionPersistenceService;
-    private final DecisionPolicy decisionPolicy;
+    private final PolicyService policyService;
 
     /**
      * @deprecated Use {@link com.loan.decision.evaluation.EvaluationOrchestrator#evaluate(UUID)} instead.
@@ -125,14 +126,18 @@ public class DecisionAggregatorService {
         String summary;
         BigDecimal pd = riskAssessment.getProbabilityOfDefault();
 
+        // Get current policy from PolicyService
+        DecisionPolicy policy = policyService.getCurrentPolicy();
+        log.debug("Using policy version: {}", policy.getMetadata().getVersion());
+
         // Decision logic using policy thresholds
-        if (hardFailures > 0) {
-            // Any HARD rule failure = DECLINE
+        if (hardFailures > 0 && policy.isHardFailDecline()) {
+            // Any HARD rule failure = DECLINE (if policy configured)
             outcome = Decision.DecisionOutcome.DECLINED;
             summary = String.format("Declined due to %d hard rule failure(s)", hardFailures);
-        } else if (decisionPolicy.isAutoApprove(pd)) {
+        } else if (policy.isAutoApprove(pd)) {
             // PD below approve threshold - auto approve if soft failures within limit
-            if (softFailures <= decisionPolicy.getMaxSoftFailuresForApproval()) {
+            if (softFailures <= policy.getMaxSoftFailuresForApproval()) {
                 outcome = Decision.DecisionOutcome.APPROVED;
                 summary = String.format("Approved - PD %.2f%% below threshold (band %s)",
                         pd.multiply(BigDecimal.valueOf(100)), riskAssessment.getRiskBand());
@@ -142,7 +147,7 @@ public class DecisionAggregatorService {
                 summary = String.format("Manual review required - %d soft failures exceed limit",
                         softFailures);
             }
-        } else if (decisionPolicy.isManualReview(pd)) {
+        } else if (policy.isManualReview(pd)) {
             // PD between approve and decline threshold - manual review
             outcome = Decision.DecisionOutcome.MANUAL_REVIEW;
             reasonCodes.add("PD_REQUIRES_REVIEW");
