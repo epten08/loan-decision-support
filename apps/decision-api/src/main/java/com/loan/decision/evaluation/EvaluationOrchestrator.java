@@ -5,6 +5,8 @@ import com.loan.decision.creditprofile.repository.CreditProfileRepository;
 import com.loan.decision.decisioning.model.Decision;
 import com.loan.decision.decisioning.repository.DecisionRepository;
 import com.loan.decision.decisioning.service.DecisionAggregatorService;
+import com.loan.decision.features.FeatureExtractor;
+import com.loan.decision.features.FeatureVector;
 import com.loan.decision.loanintake.model.LoanApplication;
 import com.loan.decision.loanintake.repository.LoanApplicationRepository;
 import com.loan.decision.riskadapter.model.RiskAssessment;
@@ -41,6 +43,7 @@ public class EvaluationOrchestrator {
     private final CreditProfileRepository creditProfileRepository;
     private final DecisionRepository decisionRepository;
     private final RuleEngineService ruleEngineService;
+    private final FeatureExtractor featureExtractor;
     private final RiskAdapterService riskAdapterService;
     private final DecisionAggregatorService decisionAggregatorService;
 
@@ -87,17 +90,21 @@ public class EvaluationOrchestrator {
         log.info("Executing rule engine for application: {}", applicationId);
         List<RuleResult> ruleResults = ruleEngineService.evaluateApplication(application, creditProfile);
 
-        // Step 6: Check for hard failures and conditionally call risk engine
+        // Step 6: Extract features for ML model
+        log.info("Extracting features for application: {}", applicationId);
+        FeatureVector features = featureExtractor.extract(application, creditProfile);
+
+        // Step 7: Check for hard failures and conditionally call risk engine
         RiskAssessment riskAssessment;
         if (ruleEngineService.hasHardFailure(ruleResults)) {
             log.info("Hard rule failure detected - skipping risk engine");
             riskAssessment = createDeclinedRiskAssessment();
         } else {
             log.info("Calling risk engine for application: {}", applicationId);
-            riskAssessment = riskAdapterService.assessRisk(application, creditProfile);
+            riskAssessment = riskAdapterService.assessRisk(application, features);
         }
 
-        // Step 7: Aggregate decision (includes persistence and audit logging)
+        // Step 8: Aggregate decision (includes persistence and audit logging)
         log.info("Aggregating decision for application: {}", applicationId);
         Decision decision = decisionAggregatorService.aggregateDecision(
                 application,
@@ -105,7 +112,7 @@ public class EvaluationOrchestrator {
                 riskAssessment
         );
 
-        // Step 8: Update application status based on decision
+        // Step 9: Update application status based on decision
         updateApplicationStatus(application, mapDecisionToStatus(decision.getOutcome()));
 
         log.info("Evaluation complete for application {}: {}", applicationId, decision.getOutcome());

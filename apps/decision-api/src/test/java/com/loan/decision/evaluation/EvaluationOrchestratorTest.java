@@ -5,6 +5,8 @@ import com.loan.decision.creditprofile.repository.CreditProfileRepository;
 import com.loan.decision.decisioning.model.Decision;
 import com.loan.decision.decisioning.repository.DecisionRepository;
 import com.loan.decision.decisioning.service.DecisionAggregatorService;
+import com.loan.decision.features.FeatureExtractor;
+import com.loan.decision.features.FeatureVector;
 import com.loan.decision.loanintake.model.Applicant;
 import com.loan.decision.loanintake.model.LoanApplication;
 import com.loan.decision.loanintake.repository.LoanApplicationRepository;
@@ -27,6 +29,7 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -45,6 +48,9 @@ class EvaluationOrchestratorTest {
     private RuleEngineService ruleEngineService;
 
     @Mock
+    private FeatureExtractor featureExtractor;
+
+    @Mock
     private RiskAdapterService riskAdapterService;
 
     @Mock
@@ -59,6 +65,7 @@ class EvaluationOrchestratorTest {
                 creditProfileRepository,
                 decisionRepository,
                 ruleEngineService,
+                featureExtractor,
                 riskAdapterService,
                 decisionAggregatorService
         );
@@ -81,7 +88,7 @@ class EvaluationOrchestratorTest {
         assertTrue(result.isFromCache());
         assertEquals(Decision.DecisionOutcome.APPROVED, result.getOutcome());
         verify(ruleEngineService, never()).evaluateApplication(any(), any());
-        verify(riskAdapterService, never()).assessRisk(any(), any());
+        verify(riskAdapterService, never()).assessRisk(any(LoanApplication.class), any(FeatureVector.class));
     }
 
     @Test
@@ -90,6 +97,7 @@ class EvaluationOrchestratorTest {
         UUID applicationId = UUID.randomUUID();
         LoanApplication application = createTestApplication(applicationId);
         CreditProfile creditProfile = createTestCreditProfile(application);
+        FeatureVector features = createTestFeatureVector();
         List<RuleResult> ruleResults = createPassingRuleResults();
         RiskAssessment riskAssessment = createLowRiskAssessment();
         Decision decision = createTestDecision(applicationId, Decision.DecisionOutcome.APPROVED);
@@ -101,7 +109,8 @@ class EvaluationOrchestratorTest {
                 .thenReturn(Optional.of(creditProfile));
         when(ruleEngineService.evaluateApplication(application, creditProfile)).thenReturn(ruleResults);
         when(ruleEngineService.hasHardFailure(ruleResults)).thenReturn(false);
-        when(riskAdapterService.assessRisk(application, creditProfile)).thenReturn(riskAssessment);
+        when(featureExtractor.extract(application, creditProfile)).thenReturn(features);
+        when(riskAdapterService.assessRisk(application, features)).thenReturn(riskAssessment);
         when(decisionAggregatorService.aggregateDecision(application, ruleResults, riskAssessment))
                 .thenReturn(decision);
 
@@ -112,7 +121,8 @@ class EvaluationOrchestratorTest {
         assertFalse(result.isFromCache());
         assertEquals(Decision.DecisionOutcome.APPROVED, result.getOutcome());
         verify(ruleEngineService).evaluateApplication(application, creditProfile);
-        verify(riskAdapterService).assessRisk(application, creditProfile);
+        verify(featureExtractor).extract(application, creditProfile);
+        verify(riskAdapterService).assessRisk(application, features);
         verify(decisionAggregatorService).aggregateDecision(application, ruleResults, riskAssessment);
     }
 
@@ -122,6 +132,7 @@ class EvaluationOrchestratorTest {
         UUID applicationId = UUID.randomUUID();
         LoanApplication application = createTestApplication(applicationId);
         CreditProfile creditProfile = createTestCreditProfile(application);
+        FeatureVector features = createTestFeatureVector();
         List<RuleResult> ruleResults = createHardFailureRuleResults();
         Decision decision = createTestDecision(applicationId, Decision.DecisionOutcome.DECLINED);
 
@@ -132,6 +143,7 @@ class EvaluationOrchestratorTest {
                 .thenReturn(Optional.of(creditProfile));
         when(ruleEngineService.evaluateApplication(application, creditProfile)).thenReturn(ruleResults);
         when(ruleEngineService.hasHardFailure(ruleResults)).thenReturn(true);
+        when(featureExtractor.extract(application, creditProfile)).thenReturn(features);
         when(decisionAggregatorService.aggregateDecision(eq(application), eq(ruleResults), any()))
                 .thenReturn(decision);
 
@@ -140,7 +152,7 @@ class EvaluationOrchestratorTest {
 
         // Assert
         assertEquals(Decision.DecisionOutcome.DECLINED, result.getOutcome());
-        verify(riskAdapterService, never()).assessRisk(any(), any());
+        verify(riskAdapterService, never()).assessRisk(any(LoanApplication.class), any(FeatureVector.class));
     }
 
     @Test
@@ -149,6 +161,7 @@ class EvaluationOrchestratorTest {
         UUID applicationId = UUID.randomUUID();
         LoanApplication application = createTestApplication(applicationId);
         CreditProfile creditProfile = createTestCreditProfile(application);
+        FeatureVector features = createTestFeatureVector();
         List<RuleResult> ruleResults = createPassingRuleResults();
         RiskAssessment riskAssessment = createLowRiskAssessment();
         Decision decision = createTestDecision(applicationId, Decision.DecisionOutcome.APPROVED);
@@ -164,7 +177,8 @@ class EvaluationOrchestratorTest {
                 .thenReturn(Optional.of(creditProfile));
         when(ruleEngineService.evaluateApplication(application, creditProfile)).thenReturn(ruleResults);
         when(ruleEngineService.hasHardFailure(ruleResults)).thenReturn(false);
-        when(riskAdapterService.assessRisk(application, creditProfile)).thenReturn(riskAssessment);
+        when(featureExtractor.extract(application, creditProfile)).thenReturn(features);
+        when(riskAdapterService.assessRisk(application, features)).thenReturn(riskAssessment);
         when(decisionAggregatorService.aggregateDecision(application, ruleResults, riskAssessment))
                 .thenReturn(decision);
 
@@ -175,6 +189,7 @@ class EvaluationOrchestratorTest {
         assertFalse(result.isFromCache());
         verify(decisionRepository, never()).existsByLoanApplicationId(applicationId);
         verify(ruleEngineService).evaluateApplication(application, creditProfile);
+        verify(featureExtractor).extract(application, creditProfile);
     }
 
     @Test
@@ -295,6 +310,21 @@ class EvaluationOrchestratorTest {
                 .probabilityOfDefault(BigDecimal.valueOf(0.03))
                 .riskBand(RiskAssessment.RiskBand.A)
                 .confidence(BigDecimal.valueOf(0.95))
+                .build();
+    }
+
+    private FeatureVector createTestFeatureVector() {
+        return FeatureVector.builder()
+                .income(BigDecimal.valueOf(5000))
+                .loanAmount(BigDecimal.valueOf(10000))
+                .loanTerm(24)
+                .creditScore(700)
+                .debtRatio(BigDecimal.valueOf(0.25))
+                .activeLoans(1)
+                .employmentStatus("EMPLOYED")
+                .incomeToLoanRatio(BigDecimal.valueOf(0.5))
+                .loanToIncomeRatio(BigDecimal.valueOf(2))
+                .creditScoreBand("B")
                 .build();
     }
 }

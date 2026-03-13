@@ -3,6 +3,7 @@ package com.loan.decision.riskadapter.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loan.decision.creditprofile.model.CreditProfile;
+import com.loan.decision.features.FeatureVector;
 import com.loan.decision.loanintake.model.LoanApplication;
 import com.loan.decision.riskadapter.controller.dto.RiskAssessmentRequest;
 import com.loan.decision.riskadapter.controller.dto.RiskAssessmentResponse;
@@ -25,6 +26,11 @@ public class RiskAdapterService {
     private final RiskAssessmentRepository riskAssessmentRepository;
     private final ObjectMapper objectMapper;
 
+    /**
+     * @deprecated Use {@link #assessRisk(LoanApplication, FeatureVector)} instead.
+     * This method is kept for backward compatibility.
+     */
+    @Deprecated
     @Transactional
     public RiskAssessment assessRisk(LoanApplication application, CreditProfile creditProfile) {
         log.info("Assessing risk for application: {}", application.getId());
@@ -53,6 +59,47 @@ public class RiskAdapterService {
                 .confidence(response.getConfidence())
                 .modelVersion(response.getModelVersion())
                 .features(serializeFeatures(request))
+                .build();
+
+        return riskAssessmentRepository.save(assessment);
+    }
+
+    /**
+     * Assesses risk using the extracted feature vector.
+     * This is the preferred method as it decouples ML from business entities.
+     *
+     * @param application the loan application (for persistence linking)
+     * @param features the extracted feature vector
+     * @return the risk assessment
+     */
+    @Transactional
+    public RiskAssessment assessRisk(LoanApplication application, FeatureVector features) {
+        log.info("Assessing risk for application: {} using feature vector", application.getId());
+
+        // Check if assessment already exists
+        if (riskAssessmentRepository.existsByLoanApplicationId(application.getId())) {
+            log.info("Risk assessment already exists for application: {}", application.getId());
+            return riskAssessmentRepository.findByLoanApplicationId(application.getId())
+                    .orElseThrow();
+        }
+
+        RiskAssessmentRequest request = buildRequestFromFeatures(features);
+
+        RiskAssessmentResponse response;
+        try {
+            response = riskEngineClient.assessRiskBlocking(request);
+        } catch (Exception e) {
+            log.error("Failed to call risk engine, using fallback: {}", e.getMessage());
+            response = calculateFallbackRiskFromFeatures(features);
+        }
+
+        RiskAssessment assessment = RiskAssessment.builder()
+                .loanApplication(application)
+                .probabilityOfDefault(response.getPd())
+                .riskBand(RiskAssessment.RiskBand.valueOf(response.getRiskBand()))
+                .confidence(response.getConfidence())
+                .modelVersion(response.getModelVersion())
+                .features(serializeFeatureVector(features))
                 .build();
 
         return riskAssessmentRepository.save(assessment);
@@ -131,6 +178,63 @@ public class RiskAdapterService {
             return objectMapper.writeValueAsString(request);
         } catch (JsonProcessingException e) {
             log.warn("Failed to serialize features: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    private RiskAssessmentRequest buildRequestFromFeatures(FeatureVector features) {
+        return RiskAssessmentRequest.builder()
+                .monthlyIncome(features.getIncome())
+                .requestedAmount(features.getLoanAmount())
+                .termMonths(features.getLoanTerm())
+                .creditScore(features.getCreditScore())
+                .debtToIncomeRatio(features.getDebtRatio())
+                .existingLoanCount(features.getActiveLoans())
+                .totalExistingDebt(features.getTotalExistingDebt())
+                .creditHistoryMonths(features.getCreditHistoryMonths())
+                .missedPaymentsLast12Months(features.getMissedPaymentsLast12Months())
+                .defaultsLast5Years(features.getDefaultsLast5Years())
+                .employmentStatus(features.getEmploymentStatus())
+                .build();
+    }
+
+    private RiskAssessmentResponse calculateFallbackRiskFromFeatures(FeatureVector features) {
+        BigDecimal pd;
+        String riskBand;
+
+        Integer score = features.getCreditScore() != null ? features.getCreditScore() : 500;
+        BigDecimal dti = features.getDebtRatio() != null ? features.getDebtRatio() : BigDecimal.valueOf(30);
+
+        if (score >= 700 && dti.compareTo(BigDecimal.valueOf(30)) <= 0) {
+            pd = BigDecimal.valueOf(0.03);
+            riskBand = "A";
+        } else if (score >= 650 && dti.compareTo(BigDecimal.valueOf(40)) <= 0) {
+            pd = BigDecimal.valueOf(0.07);
+            riskBand = "B";
+        } else if (score >= 600 && dti.compareTo(BigDecimal.valueOf(50)) <= 0) {
+            pd = BigDecimal.valueOf(0.15);
+            riskBand = "C";
+        } else if (score >= 500) {
+            pd = BigDecimal.valueOf(0.25);
+            riskBand = "D";
+        } else {
+            pd = BigDecimal.valueOf(0.40);
+            riskBand = "E";
+        }
+
+        return RiskAssessmentResponse.builder()
+                .pd(pd)
+                .riskBand(riskBand)
+                .confidence(BigDecimal.valueOf(0.70))
+                .modelVersion("fallback-v1")
+                .build();
+    }
+
+    private String serializeFeatureVector(FeatureVector features) {
+        try {
+            return objectMapper.writeValueAsString(features);
+        } catch (JsonProcessingException e) {
+            log.warn("Failed to serialize feature vector: {}", e.getMessage());
             return null;
         }
     }
