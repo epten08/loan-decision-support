@@ -45,6 +45,7 @@ class RiskAssessmentResponse(BaseModel):
     risk_band: str = Field(..., description="Risk band classification (A-E)")
     confidence: float = Field(..., ge=0, le=1, description="Model confidence (0-1)")
     model_version: str = Field(..., description="Model version used for assessment")
+    model_type: str = Field(..., description="Type of model used (e.g., logistic_regression, heuristic)")
 
     class Config:
         json_schema_extra = {
@@ -52,6 +53,7 @@ class RiskAssessmentResponse(BaseModel):
                 "pd": 0.04,
                 "risk_band": "B",
                 "confidence": 0.92,
-                "model_version": "heuristic-v1"
+                "model_version": "heuristic-v1",
+                "model_type": "heuristic"
             }
         }

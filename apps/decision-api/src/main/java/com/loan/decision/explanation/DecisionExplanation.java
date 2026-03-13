@@ -27,6 +27,7 @@ public class DecisionExplanation {
     private RiskAssessmentExplanation riskAssessment;
     private List<RuleResultExplanation> rules;
     private PolicySnapshot policy;
+    private ModelMetadata model;
     private LocalDateTime timestamp;
     private String decidedBy;
 
@@ -87,5 +88,17 @@ public class DecisionExplanation {
         private int rulesFailed;
         private int hardFailures;
         private int softFailures;
+    }
+
+    /**
+     * Model metadata for ML governance.
+     */
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ModelMetadata {
+        private String version;
+        private String type;
     }
 }

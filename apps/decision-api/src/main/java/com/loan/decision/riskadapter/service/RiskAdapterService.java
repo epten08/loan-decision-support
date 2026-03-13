@@ -58,6 +58,7 @@ public class RiskAdapterService {
                 .riskBand(RiskAssessment.RiskBand.valueOf(response.getRiskBand()))
                 .confidence(response.getConfidence())
                 .modelVersion(response.getModelVersion())
+                .modelType(response.getModelType())
                 .features(serializeFeatures(request))
                 .build();
 
@@ -99,6 +100,7 @@ public class RiskAdapterService {
                 .riskBand(RiskAssessment.RiskBand.valueOf(response.getRiskBand()))
                 .confidence(response.getConfidence())
                 .modelVersion(response.getModelVersion())
+                .modelType(response.getModelType())
                 .features(serializeFeatureVector(features))
                 .build();
 
@@ -170,6 +172,7 @@ public class RiskAdapterService {
                 .riskBand(riskBand)
                 .confidence(BigDecimal.valueOf(0.70))
                 .modelVersion("fallback-v1")
+                .modelType("fallback_heuristic")
                 .build();
     }
 
@@ -227,6 +230,7 @@ public class RiskAdapterService {
                 .riskBand(riskBand)
                 .confidence(BigDecimal.valueOf(0.70))
                 .modelVersion("fallback-v1")
+                .modelType("fallback_heuristic")
                 .build();
     }
 

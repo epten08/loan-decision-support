@@ -57,6 +57,8 @@ public class DecisionPersistenceService {
                 .hardRuleFailures((int) hardFailures)
                 .softRuleFailures((int) softFailures)
                 .decisionSummary(summary)
+                .modelVersion(riskAssessment.getModelVersion())
+                .modelType(riskAssessment.getModelType())
                 .build();
 
         Decision savedDecision = decisionRepository.save(decision);
@@ -151,6 +153,7 @@ public class DecisionPersistenceService {
             map.put("riskBand", riskAssessment.getRiskBand().name());
             map.put("confidence", riskAssessment.getConfidence());
             map.put("modelVersion", riskAssessment.getModelVersion());
+            map.put("modelType", riskAssessment.getModelType());
             map.put("features", riskAssessment.getFeatures());
             return objectMapper.writeValueAsString(map);
         } catch (JsonProcessingException e) {

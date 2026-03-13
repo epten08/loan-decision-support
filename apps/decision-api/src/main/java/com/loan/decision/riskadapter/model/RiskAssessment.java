@@ -41,6 +41,9 @@ public class RiskAssessment {
     private String modelVersion;
 
     @Column(columnDefinition = "TEXT")
+    private String modelType;
+
+    @Column(columnDefinition = "TEXT")
     private String features;
 
     @Column(nullable = false, updatable = false)

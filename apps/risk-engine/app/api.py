@@ -28,7 +28,8 @@ async def assess_risk(request: RiskAssessmentRequest) -> RiskAssessmentResponse:
             pd=round(pd, 6),
             risk_band=risk_band,
             confidence=round(confidence, 4),
-            model_version=risk_model.model_version
+            model_version=risk_model.model_version,
+            model_type=risk_model.model_type
         )
 
         logger.info(f"Risk assessment result: PD={pd:.4f}, Band={risk_band}, "
@@ -46,7 +47,7 @@ async def get_model_info():
     """Get information about the current risk model"""
     return {
         "model_version": risk_model.model_version,
-        "model_type": "heuristic",
+        "model_type": risk_model.model_type,
         "description": "Heuristic-based risk scoring model",
         "risk_bands": {
             "A": "Very low risk (PD <= 5%)",

@@ -46,6 +46,10 @@ public class Decision {
     @Column(columnDefinition = "TEXT")
     private String decisionSummary;
 
+    private String modelVersion;
+
+    private String modelType;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime decidedAt;
 

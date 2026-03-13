@@ -67,6 +67,7 @@ public class DecisionExplanationService {
                 .riskAssessment(buildRiskAssessmentExplanation(decision, decisionMadeLog))
                 .rules(buildRuleResultExplanations(decisionMadeLog))
                 .policy(buildPolicySnapshot(policy))
+                .model(buildModelMetadata(decision))
                 .timestamp(decision.getDecidedAt())
                 .decidedBy(decision.getDecidedBy())
                 .build();
@@ -93,6 +94,7 @@ public class DecisionExplanationService {
                         .interpretation(interpretRiskBand(decision.getRiskBand()))
                         .build())
                 .policy(buildPolicySnapshot(policy))
+                .model(buildModelMetadata(decision))
                 .timestamp(decision.getDecidedAt())
                 .build();
     }
@@ -225,6 +227,13 @@ public class DecisionExplanationService {
                 .maxSoftFailuresForApproval(policy.getMaxSoftFailuresForApproval())
                 .hardFailDecline(policy.isHardFailDecline())
                 .policyVersion(policy.getMetadata().getVersion())
+                .build();
+    }
+
+    private DecisionExplanation.ModelMetadata buildModelMetadata(Decision decision) {
+        return DecisionExplanation.ModelMetadata.builder()
+                .version(decision.getModelVersion())
+                .type(decision.getModelType())
                 .build();
     }
 

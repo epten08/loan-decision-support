@@ -23,4 +23,7 @@ public class RiskAssessmentResponse {
 
     @JsonProperty("model_version")
     private String modelVersion;
+
+    @JsonProperty("model_type")
+    private String modelType;
 }

@@ -14,6 +14,7 @@ class RiskModel:
 
     def __init__(self):
         self.model_version = settings.model_version
+        self.model_type = "heuristic"
 
     def predict(self, request: RiskAssessmentRequest) -> Tuple[float, str, float]:
         """
