@@ -34,6 +34,11 @@ public class DecisionAggregatorService {
     private final DecisionPersistenceService decisionPersistenceService;
     private final DecisionPolicy decisionPolicy;
 
+    /**
+     * @deprecated Use {@link com.loan.decision.evaluation.EvaluationOrchestrator#evaluate(UUID)} instead.
+     * This method is kept for backward compatibility.
+     */
+    @Deprecated
     @Transactional
     public DecisionResponse evaluateApplication(UUID applicationId) {
         log.info("Starting decision evaluation for application: {}", applicationId);
@@ -73,7 +78,7 @@ public class DecisionAggregatorService {
         }
 
         // Aggregate and persist decision with full audit trail
-        Decision decision = aggregateAndPersistDecision(application, ruleResults, riskAssessment);
+        Decision decision = aggregateDecision(application, ruleResults, riskAssessment);
 
         // Update application status
         application.setStatus(mapDecisionToStatus(decision.getOutcome()));
@@ -92,9 +97,19 @@ public class DecisionAggregatorService {
         return mapToResponse(decision);
     }
 
-    private Decision aggregateAndPersistDecision(LoanApplication application,
-                                                   List<RuleResult> ruleResults,
-                                                   RiskAssessment riskAssessment) {
+    /**
+     * Aggregates rule results and risk assessment into a final decision.
+     * This method is called by the EvaluationOrchestrator.
+     *
+     * @param application the loan application
+     * @param ruleResults the rule evaluation results
+     * @param riskAssessment the risk assessment
+     * @return the persisted decision
+     */
+    @Transactional
+    public Decision aggregateDecision(LoanApplication application,
+                                       List<RuleResult> ruleResults,
+                                       RiskAssessment riskAssessment) {
 
         List<String> reasonCodes = new ArrayList<>();
         long hardFailures = ruleResults.stream().filter(RuleResult::isHardFail).count();
